@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+# -*- coding: utf-8 -*-
 # based on script by William Hofferbert
 #
 # https://github.com/whofferbert/rpi-midi-rotary-encoder
@@ -9,17 +10,25 @@
 # created with amidithru, via os.system
 
 import RPi.GPIO as GPIO
-import time
+import time, datetime
 import mido
 import os
 import re
 
-#
-# script setup
-#
-
 # midi device naming and setup
 name = "GuitarRotaryEncoder"
+
+#Pins needed:
+#P1 - 3.3v
+#3-SDA|5-SCL
+#8-tx|10-rx
+
+#set up pi GPIO pins for Footswitches
+B1 = 29
+B2 = 31
+B3 = 33
+B4 = 35
+B5 = 37
 
 # set up pi GPIO pins for rotary encoder
 sw_pin = 19
@@ -43,76 +52,12 @@ rotary_cc_num = 7
 init_sleep_secs = 10
 
 #
-# subroutines
-#
-
-def ret_mili_time():
-  current_milli_time = int(round(time.time() * 1000))
-  return current_milli_time
-
-
-def short_circuit_time(val):
-  global last_time
-  myTime = ret_mili_time()
-  time_diff = myTime - last_time
-  if (time_diff > val):
-    last_time = myTime
-    return 0
-  else:
-    return 1
-
-
-def send_cc(channel, ccnum, val):
-  msg = mido.Message('control_change', channel=channel, control=ccnum, value=val)
-  output = mido.open_output(output_name)
-  output.send(msg)
-
-
-def rotary_callback(unused):
-  # rotating clockwise will cause pins to be different
-  global position
-  global rotary_increment
-  # rotary encoder voltages are equal when going counter-clockwise
-  if (GPIO.input(sw_pin) == GPIO.input(clk_pin)):
-    position -= rotary_increment
-    if (position < 0):
-      position = 0
-    #print("counterclockwise, pos = %s", position)
-  else:
-    position += rotary_increment
-    if (position > 127):
-      position = 127
-    #print("clockwise, pos = %s", position)
-  send_cc(rotary_channel, rotary_cc_num, position)
-
-
-def button_push(unused):
-  global button_state
-  global button_stagger_time
-  # do not trigger button actions unless 220 ms have passed
-  if (short_circuit_time(button_stagger_time)):
-    return
-  #print("Button was released!")
-  if (button_state == 1):
-    button_state = 0
-  else:
-    button_state = 1
-  midi_state = 127 * button_state
-  send_cc(button_channel, button_cc_num, midi_state)
-
-#
 # main stuff below
 # TODO maybe use the pythonic if __name__ == "__main__":
 #
 
-# use P1 header pin numbering convention, ignore warnings
 GPIO.setmode(GPIO.BOARD)
 GPIO.setwarnings(False)
-
-# Set up the GPIO channels
-GPIO.setup(dt_pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) # dt
-GPIO.setup(sw_pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) # sw
-GPIO.setup(clk_pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) # clk
 
 # wait some seconds, so we don't step on MODEP's toes
 time.sleep(init_sleep_secs)
@@ -138,12 +83,79 @@ output_name = newList[0]
 # starting time
 last_time = ret_mili_time()
 
-# button
-GPIO.add_event_detect(dt_pin,GPIO.FALLING,callback=button_push)
+print('System start/restart - ' + str(datetime.datetime.now()))
+
+#Switches to be connected to pins and 3.3v pin
+GPIO.setup(B1, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
+GPIO.setup(B2, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
+GPIO.setup(B3, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
+GPIO.setup(B4, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
+GPIO.setup(B5, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
+
+# Set up the GPIO channels
+#GPIO.setup(dt_pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) # dt
+#GPIO.setup(sw_pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) # sw
+#GPIO.setup(clk_pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) # clk
+
+#This function will run when the button is triggered
+def Notifier(channel):
+  if channel==B1:
+    print('Button 1')
+  elif channel==B2:
+    print('Button 2')          
+  elif channel==B3:
+    print('Button 3')
+  elif channel==B4:
+    print('Button 4')
+  elif channel==B5:
+    print('Button 5')
+    
+GPIO.add_event_detect(B1, GPIO.RISING)
+GPIO.add_event_detect(B2, GPIO.RISING)
+GPIO.add_event_detect(B3, GPIO.RISING)
+GPIO.add_event_detect(B4, GPIO.RISING)
+GPIO.add_event_detect(B5, GPIO.RISING)
 
 # rotary encoder
-GPIO.add_event_detect(clk_pin,GPIO.BOTH,callback=rotary_callback)
+#GPIO.add_event_detect(clk_pin,GPIO.BOTH,callback=rotary_callback)
 
-# keep running
+def send_cc(channel, ccnum, val):
+  msg = mido.Message('control_change', channel=channel, control=ccnum, value=val)
+  output = mido.open_output(output_name)
+  output.send(msg)
+
+def ret_mili_time():
+  current_milli_time = int(round(time.time() * 1000))
+  return current_milli_time
+
 while True:
-    time.sleep(0.1)
+  #print('Looping')
+  if GPIO.event_detected(B1):
+    time.sleep(0.005) # debounce for 5mSec
+    # only show valid edges
+    if GPIO.input(B1)==1:
+      Notifier(B1)
+      send_cc(0, 65, 127)
+  if GPIO.event_detected(B2):
+    time.sleep(0.005)
+    if GPIO.input(B2)==1:
+      Notifier(B2)
+      send_cc(0, 66, 127)
+  if GPIO.event_detected(B3):
+    time.sleep(0.005)
+    if GPIO.input(B3)==1:
+      Notifier(B3)
+      send_cc(0, 67, 127)
+  if GPIO.event_detected(B4):
+    time.sleep(0.005)
+    if GPIO.input(B4)==1:
+      Notifier(B4)
+      send_cc(0, 68, 127)
+  if GPIO.event_detected(B5):
+    time.sleep(0.005)
+    if GPIO.input(B5)==1:
+      Notifier(B5)
+      send_cc(0, 69, 127)
+  time.sleep(0.5)
+        
+GPIO.cleanup()
