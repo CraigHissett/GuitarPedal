@@ -1,2 +1,2 @@
 # GuitarPedal
-Pi-based Guitar multi effects pedal
+Pi-based Guitar multi effects pedal.
