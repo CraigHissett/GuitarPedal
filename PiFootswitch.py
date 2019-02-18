@@ -80,6 +80,10 @@ newList = list(filter(matcher.match, mido.get_output_names()))
 # all to get the name of the thing we just made
 output_name = newList[0]
 
+def ret_mili_time():
+  current_milli_time = int(round(time.time() * 1000))
+  return current_milli_time
+
 # starting time
 last_time = ret_mili_time()
 
@@ -123,10 +127,6 @@ def send_cc(channel, ccnum, val):
   msg = mido.Message('control_change', channel=channel, control=ccnum, value=val)
   output = mido.open_output(output_name)
   output.send(msg)
-
-def ret_mili_time():
-  current_milli_time = int(round(time.time() * 1000))
-  return current_milli_time
 
 while True:
   #print('Looping')
